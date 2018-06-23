@@ -4,17 +4,55 @@ import time
 import requests
 import mechanicalsoup
 import re
+from botocore.exceptions import ClientError
 
 class HScale:
     def __init__(self):
         self.load_gen_ami = "ami-2575315a"
         self.web_server_ami = "ami-886226f7"
-        self.security_group = "launch-wizard-1"
+        self.security_group = "project2-sec-group"
         self.instance_type = "m3.medium"
         # ec2 resource
         self.ec2_client = boto3.resource('ec2', 'us-east-1')
         self.instances = []
         self.dns = []
+        self.create_security_group()
+
+    def create_security_group(self):
+        ec2 = boto3.client('ec2')
+        response = ec2.describe_vpcs()
+        vpc_id = response.get('Vpcs', [{}])[0].get('VpcId', '')
+
+        try:
+            response = ec2.create_security_group(GroupName=self.security_group,
+                                         Description='None', VpcId=vpc_id)
+            self.security_group_id = response['GroupId']
+            print('Security Group Created %s in vpc %s.' % (self.security_group_id, vpc_id))
+
+            data = ec2.authorize_security_group_ingress(
+            GroupId=self.security_group_id,
+            IpPermissions=[
+                {'IpProtocol': 'tcp',
+                 'FromPort': 80,
+                 'ToPort': 80,
+                 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
+                {'IpProtocol': 'tcp',
+                 'FromPort': 22,
+                 'ToPort': 22,
+                 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
+            ])
+            print('Ingress Successfully Set %s' % data)
+        except ClientError as e:
+            print(e)
+
+    def remove_security_group(self):
+        ec2 = boto3.client('ec2')
+        try:
+            response = ec2.delete_security_group(GroupId=self.security_group_id)
+            print('Security Group Deleted')
+        except ClientError as e:
+            print(e)
+
 
     def launch_load_gen_instance(self):
         """
@@ -132,10 +170,10 @@ class HScale:
 
 
 def main():
-    hs = HScale()
-    load_gen_inst = hs.launch_load_gen_instance()
-    web_inst = hs.launch_web_server_instance()
-    hs.check_instance_ready()
+    #hs = HScale()
+    #load_gen_inst = hs.launch_load_gen_instance()
+    #web_inst = hs.launch_web_server_instance()
+    #hs.check_instance_ready()
     # 
     hs.login(load_gen_inst.public_dns_name, 'amir.harati@gmail.com', '81Rd2rcbE0vIxMkdotO5K2')
 
