@@ -3,6 +3,7 @@ import boto3
 import time
 import requests
 import mechanicalsoup
+import re
 
 class HScale:
     def __init__(self):
@@ -86,11 +87,30 @@ class HScale:
 
         print("all ready!!!")
 
-    def login(self, user, password):
+    def login(self, public_dns_name, user, password):
         """
             login to load generator.
         """
-        pass
+        br = mechanicalsoup.StatefulBrowser()
+        br.open('http://' + public_dns_name + "/password")
+        contents = br.get_current_page()
+        text = str(contents)
+        text = text.replace("\n", " ")
+        R = re.compile(".*You have entered your submission password.*")
+        x = R.match(text)
+        print(text)
+        if  x != None:
+            self.logined = True
+            return True
+        try:
+            br.select_form(nr=0)
+            br['passwd'] = password #'81Rd2rcbE0vIxMkdotO5K2'
+            br['username'] = user #'amir.harati@gmail.com'
+            req = br.submit_selected()
+            print(req.text)
+            self.logined = True
+        except:
+            raise NameError("Cant login!")
 
     def submit_web_dns(self, dns):
         """
@@ -116,6 +136,8 @@ def main():
     load_gen_inst = hs.launch_load_gen_instance()
     web_inst = hs.launch_web_server_instance()
     hs.check_instance_ready()
+    # 
+    hs.login(load_gen_inst.public_dns_name, 'amir.harati@gmail.com', '81Rd2rcbE0vIxMkdotO5K2')
 
 if __name__ == "__main__":
     main()
